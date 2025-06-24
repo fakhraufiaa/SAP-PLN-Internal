@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
+use App\Models\Category; //
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Str;
 
 class ProductResource extends Resource
 {
@@ -22,6 +24,19 @@ class ProductResource extends Resource
     protected static ?string $navigationGroup = 'Master Data';
 
     protected static ?int $navigationSort = 20;
+
+     protected static function generateBarcode(string $categoryName): string
+    {
+        // Get the first 4 characters of the category name, convert to uppercase.
+        $categoryCode = Str::upper(Str::substr($categoryName, 0, 4));
+
+        // Generate 10 random digits, padded with leading zeros if necessary.
+        $randomNumber = str_pad(mt_rand(0, 99999), 5, '0', STR_PAD_LEFT);
+
+        // Combine them into the desired barcode format.
+        return $categoryCode . '-' . $randomNumber;
+    }
+
 
     public static function form(Form $form): Form
     {
@@ -41,17 +56,41 @@ class ProductResource extends Resource
                     ->relationship('category', 'name')
                     ->required()
                     ->searchable()
+                    ->afterStateUpdated(function (callable $set, $state) {
+                        // This callback fires when the category is selected or changed.
+                        if ($state) {
+                            $category = Category::find($state);
+                            if ($category) {
+                                // Generate and set the barcode based on the selected category
+                                $set('barcode', static::generateBarcode($category->name));
+                            } else {
+                                // Clear barcode if category not found (shouldn't happen with valid state)
+                                $set('barcode', null);
+                            }
+                        } else {
+                            // Clear barcode if no category is selected
+                            $set('barcode', null);
+                        }
+                    })
                     ->createOptionForm([
-                Forms\Components\TextInput::make('name')
-                    ->label(__('resources.category.name'))
+                        Forms\Components\TextInput::make('name')
+                            ->label(__('resources.category.name'))
+                            ->required(),
+                        Forms\Components\Textarea::make('description')
+                            ->label(__('resources.category.description')),
+                            ]),
+                Forms\Components\TextInput::make('stock')
+                    ->label(__('resources.product.stock'))
                     ->required(),
-                Forms\Components\Textarea::make('description')
-                    ->label(__('resources.category.description')),
-                    ]),
                 Forms\Components\TextInput::make('barcode')
                     ->label(__('resources.product.barcode'))
                     ->required()
-                    ->numeric(),
+                    ->readOnly()
+                    ->afterStateHydrated(function (?Product $record, callable $set) {
+                        if ($record && $record->category && empty($record->barcode)) {
+                            $set('barcode', static::generateBarcode($record->category->name));
+                        }
+                    }),
                 Forms\Components\Textarea::make('description')
                     ->label(__('resources.product.description'))
                     ->required()
@@ -72,6 +111,9 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('category.name')
                     ->label(__('resources.product.category'))
                     ->sortable(),
+                Tables\Columns\TextColumn::make('stock')
+                    ->label(__('resources.product.stock'))
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('barcode')
                     ->label(__('resources.product.barcode'))
                     ->searchable(),
@@ -117,6 +159,15 @@ class ProductResource extends Resource
             'index' => Pages\ListProducts::route('/'),
             'create' => Pages\CreateProduct::route('/create'),
             'edit' => Pages\EditProduct::route('/{record}/edit'),
+        ];
+    }
+
+     public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'code',
+            'name',
+            'barcode',
         ];
     }
 
