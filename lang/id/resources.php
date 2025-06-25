@@ -111,6 +111,7 @@ return [
         'name' => 'Nama',
         'category' => 'Kategori',
         'barcode' => 'Barcode',
+        'barcode_image' => 'Barcode Generate',
         'description' => 'Spesifikasi (volt, coil, contact, ampere)',
         'stock' => 'Stok',
         'created_at' => 'Dibuat Pada',

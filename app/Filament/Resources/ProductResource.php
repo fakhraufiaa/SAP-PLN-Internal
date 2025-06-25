@@ -14,6 +14,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Str;
+use Milon\Barcode\DNS1D;
+use Illuminate\Support\HtmlString;
 
 class ProductResource extends Resource
 {
@@ -25,7 +27,7 @@ class ProductResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
-     protected static function generateBarcode(string $categoryName): string
+    protected static function generateBarcodeText(string $categoryName): string
     {
         // Get the first 4 characters of the category name, convert to uppercase.
         $categoryCode = Str::upper(Str::substr($categoryName, 0, 4));
@@ -37,6 +39,22 @@ class ProductResource extends Resource
         return $categoryCode . '-' . $randomNumber;
     }
 
+    protected static function generateBarcodeSvg(string $barcodeText): string
+    {
+        $barcodeGenerator = new DNS1D();
+        // Generate barcode as SVG, Code-128 type, scale 2, height 80
+        $svg = $barcodeGenerator->getBarcodeSVG($barcodeText, 'C128', 2, 80);
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
+
+     protected static function getBarcodeImageHtml(?string $barcodeValue): string
+    {
+        if ($barcodeValue) {
+            $barcodeSvgData = static::generateBarcodeSvg($barcodeValue);
+            return '<img src="' . $barcodeSvgData . '" alt="Barcode" style="width: 100%; max-width: 300px; height: auto; margin-top: 10px; border: 1px solid #ddd; padding: 5px; background-color: #fff; border-radius: 8px;">';
+        }
+        return '<p style="text-align: center; color: #6b7280; font-size: 0.9em; margin-top: 10px;">Pilih kategori untuk melihat pratinjau barcode.</p>';
+    }
 
     public static function form(Form $form): Form
     {
@@ -56,15 +74,17 @@ class ProductResource extends Resource
                     ->relationship('category', 'name')
                     ->required()
                     ->searchable()
+                    ->reactive()
                     ->afterStateUpdated(function (callable $set, $state) {
                         // This callback fires when the category is selected or changed.
                         if ($state) {
                             $category = Category::find($state);
                             if ($category) {
-                                // Generate and set the barcode based on the selected category
-                                $set('barcode', static::generateBarcode($category->name));
+                                // Generate and set the barcode text based on the selected category
+                                $generatedBarcodeText = static::generateBarcodeText($category->name);
+                                $set('barcode', $generatedBarcodeText);
                             } else {
-                                // Clear barcode if category not found (shouldn't happen with valid state)
+                                // Clear barcode if category not found
                                 $set('barcode', null);
                             }
                         } else {
@@ -81,21 +101,27 @@ class ProductResource extends Resource
                             ]),
                 Forms\Components\TextInput::make('stock')
                     ->label(__('resources.product.stock'))
-                    ->required(),
+                    ->required()
+                    ->numeric(),
                 Forms\Components\TextInput::make('barcode')
                     ->label(__('resources.product.barcode'))
                     ->required()
                     ->readOnly()
-                    ->afterStateHydrated(function (?Product $record, callable $set) {
-                        if ($record && $record->category && empty($record->barcode)) {
-                            $set('barcode', static::generateBarcode($record->category->name));
-                        }
-                    }),
+                    ->Live(),
+                   // Placeholder ini yang harus Anda gunakan
+                Forms\Components\Placeholder::make('barcode_image_display')
+                    ->label(__('resources.product.barcode_image'))
+                    ->content(function (callable $get) {
+                        $barcodeValue = $get('barcode'); // Retrieve the barcode value from the form state
+                        $htmlContent = static::getBarcodeImageHtml($barcodeValue);
+                        return new HtmlString($htmlContent); // Wrap the HTML string in HtmlString to prevent escaping
+                    })
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('description')
                     ->label(__('resources.product.description'))
                     ->required()
                     ->columnSpanFull(),
-            ]);
+                ]);
     }
 
     public static function table(Table $table): Table

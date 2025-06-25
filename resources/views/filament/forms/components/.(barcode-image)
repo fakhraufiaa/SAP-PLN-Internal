@@ -1,0 +1,5 @@
+{{-- <div style="text-align: center;">
+    {{-- $getBarcodeImageHtml adalah callable yang dilewatkan dari viewData.
+         Ia sendiri mengharapkan $get sebagai argumen untuk mengambil nilai field. --}}
+    {{-- {!! $getBarcodeImageHtml($get) !!} --}}
+{{-- </div> --}}
