@@ -29,30 +29,6 @@ class ProductResource extends Resource
 
     protected static ?int $navigationSort = 20;
 
-    /**
-     * Menghasilkan teks barcode berdasarkan nama kategori.
-     *
-     * @param string $categoryName Nama kategori.
-     * @return string Teks barcode yang dihasilkan.
-     */
-    protected static function generateBarcodeText(string $categoryName): string
-    {
-        // Ambil 4 karakter pertama dari nama kategori, ubah ke huruf besar.
-        $categoryCode = Str::upper(Str::substr($categoryName, 0, 4));
-
-        // Hasilkan 5 digit angka acak, tambahkan nol di depan jika perlu.
-        $randomNumber = str_pad(mt_rand(0, 99999), 5, '0', STR_PAD_LEFT);
-
-        // Gabungkan menjadi format barcode yang diinginkan.
-        return $categoryCode . '-' . $randomNumber;
-    }
-
-    /**
-     * Menghasilkan data SVG barcode.
-     *
-     * @param string $barcodeText Teks barcode.
-     * @return string Data URI SVG barcode.
-     */
     protected static function generateBarcodeSvg(string $barcodeText): string
     {
         $barcodeGenerator = new DNS1D();
@@ -61,12 +37,6 @@ class ProductResource extends Resource
         return 'data:image/svg+xml;base64,' . base64_encode($svg);
     }
 
-    /**
-     * Menghasilkan HTML untuk menampilkan gambar barcode.
-     *
-     * @param string|null $barcodeValue Nilai barcode.
-     * @return string HTML string dari gambar barcode atau pesan placeholder.
-     */
     protected static function getBarcodeImageHtml(?string $barcodeValue): string
     {
         if ($barcodeValue) {
@@ -76,12 +46,7 @@ class ProductResource extends Resource
         return '<p style="text-align: center; color: #6b7280; font-size: 0.9em; margin-top: 10px;">Pilih kategori untuk melihat pratinjau barcode.</p>';
     }
 
-    /**
-     * Mendefinisikan skema formulir untuk sumber daya ini.
-     *
-     * @param Form $form Objek Form.
-     * @return Form Skema formulir yang telah dikonfigurasi.
-     */
+
     public static function form(Form $form): Form
     {
         return $form
@@ -102,19 +67,16 @@ class ProductResource extends Resource
                     ->searchable()
                     ->reactive()
                     ->afterStateUpdated(function (callable $set, $state) {
-                        // Callback ini dijalankan saat kategori dipilih atau diubah.
                         if ($state) {
                             $category = Category::find($state);
                             if ($category) {
-                                // Hasilkan dan atur teks barcode berdasarkan kategori yang dipilih
-                                $generatedBarcodeText = static::generateBarcodeText($category->name);
+                                // Panggil metode dari model Product
+                                $generatedBarcodeText = Product::generateNewBarcodeText($category->name);
                                 $set('barcode', $generatedBarcodeText);
                             } else {
-                                // Hapus barcode jika kategori tidak ditemukan
                                 $set('barcode', null);
                             }
                         } else {
-                            // Hapus barcode jika tidak ada kategori yang dipilih
                             $set('barcode', null);
                         }
                     })

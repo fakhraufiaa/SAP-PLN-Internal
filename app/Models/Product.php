@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
+
 
 class Product extends Model
 {
@@ -82,6 +84,19 @@ class Product extends Model
     public function contractProducts(): HasMany
     {
         return $this->hasMany(ContractProduct::class);
+    }
+
+     public static function generateNewBarcodeText(string $categoryName): string
+    {
+        // Ambil 4 karakter pertama dari nama kategori, ubah ke huruf besar.
+        $categoryCode = Str::upper(Str::substr($categoryName, 0, 4));
+
+        // Hasilkan 5 digit angka acak, tambahkan nol di depan jika perlu.
+        // str_pad(mt_rand(0, 99999), 5, '0', STR_PAD_LEFT) akan menghasilkan 5 digit acak
+        $randomNumber = str_pad(mt_rand(0, 99999), 5, '0', STR_PAD_LEFT);
+
+        // Gabungkan menjadi format barcode yang diinginkan.
+        return $categoryCode . '-' . $randomNumber;
     }
 
     protected static function booted()
