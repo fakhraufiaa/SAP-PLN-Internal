@@ -95,7 +95,8 @@ class ProductResource extends Resource
                     ->label(__('resources.product.barcode'))
                     ->required()
                     ->readOnly()
-                    ->live(), // Penting untuk memperbarui placeholder secara real-time
+                    ->live() // Penting untuk memperbarui placeholder secara real-time
+                    ->default(fn (Get $get) => $get('category_id') ? Product::generateNewBarcodeText(Category::find($get('category_id'))->name) : null),
 
                 // Mengelompokkan gambar barcode dan tombol unduh menggunakan Group dengan flexbox
                 Forms\Components\Group::make()

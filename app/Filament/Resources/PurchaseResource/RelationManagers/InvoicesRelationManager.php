@@ -39,8 +39,7 @@ class InvoicesRelationManager extends RelationManager
                     ->required(),
 
                 Forms\Components\Hidden::make('number')
-                ->required(),
-
+                    ->required(),
 
                 Forms\Components\DatePicker::make('date')
                     ->label(__('resources.invoice.date'))
