@@ -86,7 +86,7 @@ class Product extends Model
         return $this->hasMany(ContractProduct::class);
     }
 
-     public static function generateNewBarcodeText(string $categoryName): string
+    public static function generateNewBarcodeText(string $categoryName): string
     {
         // Ambil 4 karakter pertama dari nama kategori, ubah ke huruf besar.
         $categoryCode = Str::upper(Str::substr($categoryName, 0, 4));

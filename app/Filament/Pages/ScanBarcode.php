@@ -17,6 +17,7 @@ class ScanBarcode extends Page
     public $productName;
     public $productCategory;
     public $productSpecification;
+    public $shippingInfo = null;
 
     protected function getScannedCode(): string
     {
@@ -45,22 +46,36 @@ class ScanBarcode extends Page
         ];
     }
 
-      public function onCodeScanned(string $code): void
+    public function onCodeScanned(string $code): void
     {
         $this->scannedCode = $code;
 
+        // Cek apakah hasil scan adalah JSON (QR shipping)
+        $data = json_decode($code, true);
+
+        if (is_array($data) && isset($data['id']) && isset($data['code'])) {
+            // Ini QR shipping, tampilkan info shipping dari JSON
+            $this->shippingInfo = $data;
+            // Kosongkan info produk
+            $this->productName = null;
+            $this->productCategory = null;
+            $this->productSpecification = null;
+            return;
+        }
+
+        // Jika bukan QR shipping, cek produk
         $product = Product::where('barcode', $code)->first();
 
         if ($product) {
             $this->productName = $product->name;
             $this->productCategory = $product->category->name ?? 'Tidak diketahui';
             $this->productSpecification = $product->description ?? '-';
+            $this->shippingInfo = null;
         } else {
             $this->productName = 'Produk tidak ditemukan';
             $this->productCategory = '-';
             $this->productSpecification = '-';
+            $this->shippingInfo = null;
         }
     }
-
-
 }

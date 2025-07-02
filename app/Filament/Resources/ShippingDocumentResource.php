@@ -6,6 +6,8 @@ use App\Enums\ProductStatus;
 use App\Filament\Resources\ShippingDocumentResource\Pages;
 use App\Filament\Resources\ShippingDocumentResource\RelationManagers\ProductsRelationManager;
 use App\Models\ShippingDocument;
+use App\Models\ShippingDocumentProduct;
+use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,6 +17,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString; // Diperlukan untuk HtmlString
+use Filament\Forms\Get; // Diperlukan untuk Get
+use Filament\Notifications\Notification; // Diperlukan untuk Notifikasi
 
 
 class ShippingDocumentResource extends Resource
@@ -180,6 +185,65 @@ class ShippingDocumentResource extends Resource
                     ->enum(ProductStatus::class)
                     ->default(ProductStatus::PENDING)
                     ->required(),
+                //  // --- BAGIAN QR CODE YANG HANYA MUNCUL SETELAH DISIMPAN ---
+                // Forms\Components\Section::make('QR Code Dokumen Pengiriman')
+                //     ->description('Klik tombol "Generate QR Code" untuk membuat pratinjau. QR Code akan digenerate dari data yang telah disimpan.')
+                //     ->schema([
+                //         // Placeholder untuk menampilkan gambar QR
+                //         Forms\Components\Placeholder::make('qr_code_display')
+                //             ->label('Pratinjau QR Code')
+                //             ->content(function (callable $get) {
+                //                 // Mengambil data QR code HTML yang mungkin sudah digenerate dari Livewire
+                //                 $qrCodeHtml = $get('qr_code_html_storage');
+                //                 if ($qrCodeHtml) {
+                //                     return new HtmlString($qrCodeHtml);
+                //                 }
+                //                 return '<p style="text-align: center; color: #6b7280; font-size: 0.9em;">Klik "Generate QR Code" untuk melihat pratinjau.</p>';
+                //             }),
+
+                //         // Hidden field untuk menyimpan HTML/SVG QR code sementara
+                //         Forms\Components\Hidden::make('qr_code_html_storage'),
+
+                //         Forms\Components\Actions::make([
+                //             Forms\Components\Actions\Action::make('generate_qr')
+                //                 ->label('Generate QR Code')
+                //                 ->icon('heroicon-o-qr-code')
+                //                 ->color('primary')
+                //                 ->button()
+                //                 ->action(function (Forms\Components\Actions\Action $action, Get $get, $livewire) {
+                //                     $record = $livewire->getRecord();
+                //                     if (!$record) {
+                //                         Notification::make()
+                //                             ->title('Dokumen belum disimpan')
+                //                             ->body('Simpan dokumen terlebih dahulu sebelum generate QR Code.')
+                //                             ->danger()
+                //                             ->send();
+                //                         return;
+                //                     }
+
+                //                     // Panggil method Livewire dengan ID ShippingDocument
+                //                     $action->getLivewire()->generateAndDisplayShippingQr($record->id);
+                //                 })
+                //                 // Tombol Generate QR hanya aktif jika record sudah disimpan (memiliki ID)
+                //                 ->disabled(fn ($livewire) => !$livewire->getRecord()),
+
+                //             // Tombol Download QR (saat ini disembunyikan, akan diaktifkan nanti)
+                //             Forms\Components\Actions\Action::make('download_qr')
+                //                 ->label('Unduh QR Code (PNG)')
+                //                 ->icon('heroicon-o-arrow-down-tray')
+                //                 ->color('success')
+                //                 ->button()
+                //                 ->hidden(), // Sembunyikan untuk saat ini
+                //         ])
+                //         ->alignCenter(),
+                //     ])
+                //     ->columns(1) // Pastikan section ini menggunakan 1 kolom
+                //     // Ini akan menyembunyikan seluruh section hingga record memiliki ID (sudah disimpan)
+                //     ->hidden(fn ($livewire) => !$livewire->getRecord()),
+
+                // // Memasukkan skrip JavaScript kustom
+                // Forms\Components\View::make('scripts.shipping-qr-script')
+                //     ->hiddenLabel(),
             ]);
     }
 
@@ -273,6 +337,14 @@ class ShippingDocumentResource extends Resource
                 Tables\Actions\DeleteAction::make(),
                 Tables\Actions\ForceDeleteAction::make(),
                 Tables\Actions\RestoreAction::make(),
+                Tables\Actions\Action::make('generate_qr')
+                    ->label('Lihat QR Code')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('primary')
+                    ->url(fn ($record) => static::getUrl('view-qr', ['record' => $record]))
+                    ->openUrlInNewTab()
+                    ->button()
+                    ->disabled(fn ($record) => !$record->id),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -296,6 +368,7 @@ class ShippingDocumentResource extends Resource
             'index' => Pages\ListShippingDocuments::route('/'),
             'create' => Pages\CreateShippingDocument::route('/create'),
             'edit' => Pages\EditShippingDocument::route('/{record}/edit'),
+            'view-qr' => Pages\ViewShippingQr::route('/{record}/view-qr'),
         ];
     }
 
@@ -305,6 +378,41 @@ class ShippingDocumentResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    public static function generateAndDisplayShippingQr($shippingDocumentId)
+    {
+        $shipping = \App\Models\ShippingDocument::with(['invoice', 'supplier', 'products'])->find($shippingDocumentId);
+
+        if (!$shipping) {
+            Notification::make()
+                ->title('Data Shipping Document tidak ditemukan.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $data = [
+            'id' => $shipping->id,
+            'code' => $shipping->code,
+            'invoice' => $shipping->invoice?->code,
+            'supplier' => $shipping->supplier?->name,
+            'status' => $shipping->status,
+            'products' => $shipping->products->map(function($p) {
+                return [
+                    'name' => $p->product?->name ?? '-', // Ambil nama produk dari relasi
+                    'quantity' => $p->quantity ?? null,
+                ];
+            })->values()->all(),
+        ];
+
+        $qrContent = json_encode($data);
+        $qrSvg = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(200)->generate($qrContent);
+
+        // Simpan atau tampilkan sesuai kebutuhan, misal tampilkan modal atau simpan ke kolom
+        // Contoh: simpan ke kolom qr_code_html_storage
+        $shipping->qr_code_html_storage = $qrSvg;
+        $shipping->save();
     }
 }
 

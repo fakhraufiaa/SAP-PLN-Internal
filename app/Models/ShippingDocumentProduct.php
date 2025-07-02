@@ -12,12 +12,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class ShippingDocumentProduct extends Model
 {
     use LogsActivity, SoftDeletes;
-    
+
     protected $fillable = [
         'shipping_document_id',
         'product_id',
-        'price',
         'quantity',
+        'created_at',
         'status',
         'status_at',
     ];
@@ -57,4 +57,5 @@ class ShippingDocumentProduct extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
 }

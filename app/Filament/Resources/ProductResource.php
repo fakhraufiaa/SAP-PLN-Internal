@@ -15,9 +15,9 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Str;
 use Milon\Barcode\DNS1D;
 use Illuminate\Support\HtmlString;
-use Picqer\Barcode\BarcodeGeneratorJPG; // Import Picqer Barcode Generator untuk JPG
-use Filament\Notifications\Notification; // Import Notification
-use Filament\Forms\Get; // Import Get untuk Closure form
+use Picqer\Barcode\BarcodeGeneratorJPG;
+use Filament\Notifications\Notification;
+use Filament\Forms\Get;
 
 class ProductResource extends Resource
 {
