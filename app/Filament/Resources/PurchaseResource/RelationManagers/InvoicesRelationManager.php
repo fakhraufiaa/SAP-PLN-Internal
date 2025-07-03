@@ -46,14 +46,14 @@ class InvoicesRelationManager extends RelationManager
                         $purchase = \App\Models\Purchase::with('procurement')->where('code', $state)->first();
                         if ($purchase) {
                             $set('purchase_id', $purchase->id);
-                            $set('number_display', $purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('penugasan_id_display', $purchase->procurement?->penugasan_id ?? '-');
                             $set('number', $purchase->procurement?->id ?? null);
                         }
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
                         if ($record && $record->purchase) {
                             $set('purchase_code', $record->purchase->code);
-                            $set('number_display', $record->purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('penugasan_id_display', $record->purchase->procurement?->penugasan_id ?? '-');
                             $set('number', $record->purchase->procurement?->id ?? null);
                         }
                     }),
@@ -61,8 +61,8 @@ class InvoicesRelationManager extends RelationManager
                 Forms\Components\Hidden::make('number')
                     ->required(),
 
-                Forms\Components\TextInput::make('number_display')
-                    ->label(__('resources.invoice.number'))
+                Forms\Components\TextInput::make('penugasan_id_display')
+                    ->label(__('Penugasan'))
                     ->disabled()
                     ->dehydrated(false),
 

@@ -30,28 +30,38 @@ class ShippingDocumentsRelationManager extends RelationManager
                     ->default(fn () => 'SHP-'.str_pad((ShippingDocument::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
                     ->readOnly(),
 
-                // Use the procurement number from the parent invoice
-                Forms\Components\Select::make('number')
-                    ->label(__('resources.shipping_document.number'))
-                    ->options(function ($livewire) {
-                        $invoice = $livewire->getOwnerRecord();
-                        if ($invoice->purchase) {
-                            return [$invoice->purchase->number => $invoice->purchase->procurement?->number ?? 'N/A'];
+                Forms\Components\Select::make('invoice_id')
+                    ->label(__('resources.shipping_document.invoice'))
+                    ->options(function () {
+                        return \App\Models\Invoice::pluck('code', 'id');
+                    })
+                    ->searchable()
+                    ->required()
+                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
+                        $invoice = \App\Models\Invoice::with('purchase.procurement')->find($state);
+                        if ($invoice && $invoice->purchase && $invoice->purchase->procurement) {
+                            $set('number', $invoice->purchase->procurement->number); // simpan penugasan_id ke kolom number
+                            $set('penugasan_id_display', $invoice->purchase->procurement->penugasan_id); // tampilkan penugasan_id
+                        } else {
+                            $set('number', null);
+                            $set('penugasan_id_display', null);
                         }
-                        return [];
+                        $set('supplier_id', $invoice?->supplier_id);
                     })
-                    ->default(function ($livewire) {
-                        $invoice = $livewire->getOwnerRecord();
-                        return $invoice->purchase?->number;
-                    })
-                    ->disabled() // Since there's only one option in the relation manager
-                    ->dehydrated(false), // We don't need to save this
-
-                // The invoice_id is automatically set from the parent record
-                Forms\Components\Hidden::make('invoice_id')
-                    ->default(function ($livewire) {
-                        return $livewire->getOwnerRecord()->id;
+                    ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
+                        if ($record && $record->invoice && $record->invoice->purchase && $record->invoice->purchase->procurement) {
+                            $set('number', $record->invoice->purchase->procurement->number);
+                            $set('penugasan_id_display', $record->invoice->purchase->procurement->penugasan_id);
+                        }
                     }),
+
+                Forms\Components\Hidden::make('number')
+                    ->required(),
+
+                Forms\Components\TextInput::make('penugasan_id_display')
+                    ->label('Penugasan ID')
+                    ->disabled()
+                    ->dehydrated(false),
 
                 Forms\Components\Select::make('supplier_id')
                     ->label(__('resources.shipping_document.supplier'))

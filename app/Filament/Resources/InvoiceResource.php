@@ -79,7 +79,7 @@ class InvoiceResource extends Resource
                             // Set purchase_id untuk database
                             $set('purchase_id', $purchase->id);
                             // Set number untuk display (nomor procurement)
-                            $set('number_display', $purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('penugasan_id_display', $purchase->procurement?->penugasan_id ?? '-');
                             // Set number untuk database (ID procurement)
                             $set('number', $purchase->procurement?->id ?? null);
                         }
@@ -87,7 +87,7 @@ class InvoiceResource extends Resource
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
                         if ($record && $record->purchase) {
                             $set('purchase_code', $record->purchase->code);
-                            $set('number_display', $record->purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('penugasan_id_display', $record->purchase->procurement?->penugasan_id ?? '-');
                             $set('number', $record->purchase->procurement?->id ?? null);
                         }
                     }),
@@ -101,8 +101,8 @@ class InvoiceResource extends Resource
 
 
                 // Display only untuk nomor procurement
-                Forms\Components\TextInput::make('number_display')
-                    ->label(__('resources.invoice.number'))
+                Forms\Components\TextInput::make('penugasan_id_display')
+                    ->label(__('Penugasan'))
                     ->disabled()
                     ->dehydrated(false),
 

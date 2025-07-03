@@ -87,58 +87,44 @@ class ShippingDocumentResource extends Resource
                     ->readOnly(),
 
                 // Updated Select for procurement numbers
-                Forms\Components\Select::make('number')
-                    ->label(__('resources.shipping_document.number'))
+                Forms\Components\Select::make('invoice_id')
+                    ->label(__('resources.shipping_document.invoice'))
                     ->options(function () {
-                        return \App\Models\Procurement::pluck('number', 'id');
+                        return \App\Models\Invoice::pluck('code', 'id');
                     })
                     ->searchable()
                     ->live()
                     ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
-                        if (!$state) return;
-
-                        // Find invoice related to this procurement
-                        $invoice = \App\Models\Invoice::where('purchase_id', function ($query) use ($state) {
-                            $query->select('id')
-                                ->from('purchases')
-                                ->where('number', $state);
-                        })->first();
-
-                        if ($invoice) {
-                            // Set the invoice_id for database storage
-                            $set('invoice_id', $invoice->id);
-
-                            // Set the invoice_code for display
-                            $set('invoice_code', $invoice->code);
-
-                            // Also set supplier from the invoice
-                            $set('supplier_id', $invoice->supplier_id);
-                        } else {
-                            // Clear fields if no invoice found
-                            $set('invoice_id', null);
-                            $set('invoice_code', null);
+                        if (!$state) {
+                            $set('number', null);
+                            $set('penugasan_id_display', null);
                             $set('supplier_id', null);
+                            return;
                         }
+
+                        $invoice = \App\Models\Invoice::with('purchase.procurement')->find($state);
+                        if ($invoice && $invoice->purchase && $invoice->purchase->procurement) {
+                            $set('number', $invoice->purchase->procurement->penugasan_id); // <-- simpan penugasan_id ke kolom number
+                            $set('penugasan_id_display', $invoice->purchase->procurement->penugasan_id); // tampilkan penugasan_id
+                        } else {
+                            $set('number', null);
+                            $set('penugasan_id_display', null);
+                        }
+                        $set('supplier_id', $invoice?->supplier_id);
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
-                        // When loading an existing record, set the fields correctly
-                        if ($record && $record->invoice) {
-                            // Get the procurement ID from the invoice's purchase
-                            $purchase = $record->invoice->purchase;
-                            if ($purchase) {
-                                $set('number', $purchase->number);
-                            }
-
-                            $set('invoice_code', $record->invoice->code);
-                            $set('invoice_id', $record->invoice_id);
+                        if ($record && $record->invoice && $record->invoice->purchase && $record->invoice->purchase->procurement) {
+                            $set('number', $record->invoice->purchase->procurement->penugasan_id);
+                            $set('penugasan_id_display', $record->invoice->purchase->procurement->penugasan_id);
                         }
-                    }),
-
-                Forms\Components\Hidden::make('invoice_id')
+                    })
                     ->required(),
 
-                Forms\Components\TextInput::make('invoice_code')
-                    ->label(__('resources.shipping_document.invoice'))
+                Forms\Components\Hidden::make('number')
+                    ->required(),
+
+                Forms\Components\TextInput::make('penugasan_id_display')
+                    ->label('Penugasan')
                     ->disabled()
                     ->dehydrated(false),
 
@@ -146,104 +132,13 @@ class ShippingDocumentResource extends Resource
                     ->label(__('resources.shipping_document.supplier'))
                     ->relationship('supplier', 'name')
                     ->required()
-                    ->searchable()
-                    ->createOptionForm([
-                        Forms\Components\TextInput::make('name')
-                            ->label(__('resources.supplier.name'))
-                            ->required()
-                            ->columnSpanFull(),
-                        Forms\Components\Section::make(__('resources.supplier.sales_contact'))
-                            ->schema([
-                                Forms\Components\TextInput::make('sales_name')
-                                    ->label(__('resources.supplier.sales_name'))
-                                    ->required(),
-                                Forms\Components\TextInput::make('sales_phone')
-                                    ->label(__('resources.supplier.sales_phone'))
-                                    ->required()
-                                    ->tel(),
-                                Forms\Components\TextInput::make('sales_email')
-                                    ->label(__('resources.supplier.sales_email'))
-                                    ->email(),
-                            ])->columns(3),
-                        Forms\Components\Section::make(__('resources.supplier.logistics_contact'))
-                            ->schema([
-                                Forms\Components\TextInput::make('logistics_name')
-                                    ->label(__('resources.supplier.logistics_name'))
-                                    ->required(),
-                                Forms\Components\TextInput::make('logistics_phone')
-                                    ->label(__('resources.supplier.logistics_phone'))
-                                    ->required()
-                                    ->tel(),
-                                Forms\Components\TextInput::make('logistics_email')
-                                    ->label(__('resources.supplier.logistics_email'))
-                                    ->email(),
-                            ])->columns(3),
-                    ]),
+                    ->searchable(),
                 Forms\Components\Select::make('status')
                     ->label(__('resources.shipping_document.status'))
                     ->options(ProductStatus::class)
                     ->enum(ProductStatus::class)
                     ->default(ProductStatus::PENDING)
                     ->required(),
-                //  // --- BAGIAN QR CODE YANG HANYA MUNCUL SETELAH DISIMPAN ---
-                // Forms\Components\Section::make('QR Code Dokumen Pengiriman')
-                //     ->description('Klik tombol "Generate QR Code" untuk membuat pratinjau. QR Code akan digenerate dari data yang telah disimpan.')
-                //     ->schema([
-                //         // Placeholder untuk menampilkan gambar QR
-                //         Forms\Components\Placeholder::make('qr_code_display')
-                //             ->label('Pratinjau QR Code')
-                //             ->content(function (callable $get) {
-                //                 // Mengambil data QR code HTML yang mungkin sudah digenerate dari Livewire
-                //                 $qrCodeHtml = $get('qr_code_html_storage');
-                //                 if ($qrCodeHtml) {
-                //                     return new HtmlString($qrCodeHtml);
-                //                 }
-                //                 return '<p style="text-align: center; color: #6b7280; font-size: 0.9em;">Klik "Generate QR Code" untuk melihat pratinjau.</p>';
-                //             }),
-
-                //         // Hidden field untuk menyimpan HTML/SVG QR code sementara
-                //         Forms\Components\Hidden::make('qr_code_html_storage'),
-
-                //         Forms\Components\Actions::make([
-                //             Forms\Components\Actions\Action::make('generate_qr')
-                //                 ->label('Generate QR Code')
-                //                 ->icon('heroicon-o-qr-code')
-                //                 ->color('primary')
-                //                 ->button()
-                //                 ->action(function (Forms\Components\Actions\Action $action, Get $get, $livewire) {
-                //                     $record = $livewire->getRecord();
-                //                     if (!$record) {
-                //                         Notification::make()
-                //                             ->title('Dokumen belum disimpan')
-                //                             ->body('Simpan dokumen terlebih dahulu sebelum generate QR Code.')
-                //                             ->danger()
-                //                             ->send();
-                //                         return;
-                //                     }
-
-                //                     // Panggil method Livewire dengan ID ShippingDocument
-                //                     $action->getLivewire()->generateAndDisplayShippingQr($record->id);
-                //                 })
-                //                 // Tombol Generate QR hanya aktif jika record sudah disimpan (memiliki ID)
-                //                 ->disabled(fn ($livewire) => !$livewire->getRecord()),
-
-                //             // Tombol Download QR (saat ini disembunyikan, akan diaktifkan nanti)
-                //             Forms\Components\Actions\Action::make('download_qr')
-                //                 ->label('Unduh QR Code (PNG)')
-                //                 ->icon('heroicon-o-arrow-down-tray')
-                //                 ->color('success')
-                //                 ->button()
-                //                 ->hidden(), // Sembunyikan untuk saat ini
-                //         ])
-                //         ->alignCenter(),
-                //     ])
-                //     ->columns(1) // Pastikan section ini menggunakan 1 kolom
-                //     // Ini akan menyembunyikan seluruh section hingga record memiliki ID (sudah disimpan)
-                //     ->hidden(fn ($livewire) => !$livewire->getRecord()),
-
-                // // Memasukkan skrip JavaScript kustom
-                // Forms\Components\View::make('scripts.shipping-qr-script')
-                //     ->hiddenLabel(),
             ]);
     }
 
