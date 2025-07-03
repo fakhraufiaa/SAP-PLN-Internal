@@ -51,6 +51,7 @@ class PurchaseResource extends Resource
                     ->unique(ignoreRecord: true)
                     ->default(fn () => 'PUR-'.str_pad((Purchase::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
                     ->readOnly(),
+
                 Forms\Components\Select::make('number')
                     ->label(__('resources.purchase.number'))
                     ->searchable()
@@ -62,26 +63,30 @@ class PurchaseResource extends Resource
                         if ($state) {
                             $procurement = \App\Models\Procurement::find($state);
                             if ($procurement) {
-                                $set('procurement_id', $procurement->penugasan_id);
+                                $set('procurement_id', $procurement->id); // <-- ID procurement untuk database
+                                $set('procurement_id_display', $procurement->penugasan_id); // <-- hanya untuk display
                             }
+                        }
+                    })
+                    ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
+                        if ($record && $record->number) {
+                            $procurement = \App\Models\Procurement::find($record->number);
+                            $set('procurement_id', $procurement?->id ?? null); // <-- ID procurement untuk database
+                            $set('procurement_id_display', $procurement?->penugasan_id ?? null); // <-- hanya untuk display
                         }
                     })
                     ->required(),
 
                 Forms\Components\Hidden::make('number')
-                ->required(),
+                    ->required(),
 
-                Forms\Components\TextInput::make('procurement_id')
-                ->label(__('resources.purchase.procurement'))
-                ->disabled()
-                ->dehydrated(false)
-                ->afterStateHydrated(function (\Filament\Forms\Components\TextInput $component, $state) {
-                    $record = $component->getRecord();
-                    if ($record?->number) {
-                        $procurement = \App\Models\Procurement::find($record->number);
-                        $component->state($procurement?->penugasan_id);
-                    }
-                }),
+                Forms\Components\Hidden::make('procurement_id')
+                    ->required(), // <-- ini yang masuk ke database
+
+                Forms\Components\TextInput::make('procurement_id_display')
+                    ->label(__('resources.purchase.procurement'))
+                    ->disabled()
+                    ->dehydrated(false),
 
                 Forms\Components\Select::make('supplier_id')
                 ->label(__('resources.purchase.supplier'))
