@@ -48,13 +48,13 @@ class ScanBarcode extends Page
 
     public function onCodeScanned(string $code): void
     {
-        $this->scannedCode = $code;
-
         // Cek apakah hasil scan adalah JSON (QR shipping)
         $data = json_decode($code, true);
 
         if (is_array($data) && isset($data['id']) && isset($data['code'])) {
-            // Ini QR shipping, tampilkan info shipping dari JSON
+            // scannedCode hanya diisi kode shipping saja
+            $this->scannedCode = $data['code'];
+            // Semua data shipping tetap diisi ke shippingInfo
             $this->shippingInfo = $data;
             // Kosongkan info produk
             $this->productName = null;
@@ -64,6 +64,7 @@ class ScanBarcode extends Page
         }
 
         // Jika bukan QR shipping, cek produk
+        $this->scannedCode = $code;
         $product = Product::where('barcode', $code)->first();
 
         if ($product) {

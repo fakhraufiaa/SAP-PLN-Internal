@@ -42,8 +42,7 @@
         @push('scripts')
             <script src="{{ asset('js/html5-qrcode.min.js') }}"></script>
             <script>
-                function onScanSuccess(decodedText, decodedResult) {
-                    document.getElementById('result').value = decodedText;
+                function onScanSuccess(decodedText) {
                     Livewire.dispatch('codeScanned', { code: decodedText });
                 }
 
