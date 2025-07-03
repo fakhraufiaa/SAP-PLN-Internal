@@ -59,46 +59,50 @@ class InvoiceResource extends Resource
                     ->default(fn () => 'INV-'.str_pad((Invoice::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
                     ->readOnly(),
 
-                Forms\Components\Select::make('number')
-                    ->label(__('resources.invoice.number'))
+                // Dropdown untuk memilih kode purchase
+                Forms\Components\Select::make('purchase_code')
+                    ->label(__('resources.invoice.purchase'))
                     ->options(function () {
                         return \App\Models\Purchase::with('procurement')
                             ->get()
                             ->mapWithKeys(function ($purchase) {
                                 return [
-                                    $purchase->id => $purchase->procurement?->number ?? 'Tanpa Nomor',
+                                    $purchase->code => $purchase->code, // Dropdown by code
                                 ];
                             });
                     })
                     ->searchable()
                     ->live()
                     ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
-                        $purchase = \App\Models\Purchase::with('procurement')->find($state);
+                        $purchase = \App\Models\Purchase::with('procurement')->where('code', $state)->first();
                         if ($purchase) {
-                            // Set the actual purchase_id for database storage
-                            $set('purchase_id', $state);
-
-                            // Set a display field for showing the purchase code to the user
-                            $set('purchase_code', $purchase->code);
+                            // Set purchase_id untuk database
+                            $set('purchase_id', $purchase->id);
+                            // Set number untuk display (nomor procurement)
+                            $set('number_display', $purchase->procurement?->number ?? 'Tanpa Nomor');
+                            // Set number untuk database (ID procurement)
+                            $set('number', $purchase->procurement?->id ?? null);
                         }
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
-                        // When loading an existing record, set the purchase_code field
                         if ($record && $record->purchase) {
                             $set('purchase_code', $record->purchase->code);
-
-                            // Also set the number field to the purchase_id for the dropdown
-                            $set('number', $record->purchase_id);
+                            $set('number_display', $record->purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('number', $record->purchase->procurement?->id ?? null);
                         }
                     }),
 
-                // Hidden field to store the actual purchase_id for the database relationship
+                // Hidden field untuk relasi
                 Forms\Components\Hidden::make('purchase_id')
                     ->required(),
 
-                // Display-only field to show the purchase code to the user
-                Forms\Components\TextInput::make('purchase_code')
-                    ->label(__('resources.invoice.purchase'))
+                Forms\Components\Hidden::make('number')
+                    ->required(),
+
+
+                // Display only untuk nomor procurement
+                Forms\Components\TextInput::make('number_display')
+                    ->label(__('resources.invoice.number'))
                     ->disabled()
                     ->dehydrated(false),
 
@@ -173,8 +177,7 @@ class InvoiceResource extends Resource
                 Tables\Columns\TextColumn::make('number')
                     ->label(__('resources.invoice.number'))
                     ->formatStateUsing(function ($record) {
-                        // Get the procurement number through the purchase relationship
-                        return $record->purchase?->procurement?->number ?? 'N/A';
+                        return $record->purchase?->procurement?->number ?? '-';
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('date')

@@ -29,17 +29,42 @@ class InvoicesRelationManager extends RelationManager
                     ->unique(ignoreRecord: true)
                     ->default(fn () => 'INV-'.str_pad((Invoice::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
                     ->readOnly(),
-                 Forms\Components\Select::make('number')
-                    ->label(__('resources.invoice.number'))
-                    ->searchable()
+                 Forms\Components\Select::make('purchase_code')
+                    ->label(__('resources.invoice.purchase'))
                     ->options(function () {
-                        return \App\Models\Invoice::pluck('number', 'id'); // id disimpan, number ditampilkan
+                        return \App\Models\Purchase::with('procurement')
+                            ->get()
+                            ->mapWithKeys(function ($purchase) {
+                                return [
+                                    $purchase->code => $purchase->code,
+                                ];
+                            });
                     })
+                    ->searchable()
                     ->live()
-                    ->required(),
+                    ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
+                        $purchase = \App\Models\Purchase::with('procurement')->where('code', $state)->first();
+                        if ($purchase) {
+                            $set('purchase_id', $purchase->id);
+                            $set('number_display', $purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('number', $purchase->procurement?->id ?? null);
+                        }
+                    })
+                    ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
+                        if ($record && $record->purchase) {
+                            $set('purchase_code', $record->purchase->code);
+                            $set('number_display', $record->purchase->procurement?->number ?? 'Tanpa Nomor');
+                            $set('number', $record->purchase->procurement?->id ?? null);
+                        }
+                    }),
 
                 Forms\Components\Hidden::make('number')
                     ->required(),
+
+                Forms\Components\TextInput::make('number_display')
+                    ->label(__('resources.invoice.number'))
+                    ->disabled()
+                    ->dehydrated(false),
 
                 Forms\Components\DatePicker::make('date')
                     ->label(__('resources.invoice.date'))
@@ -102,6 +127,9 @@ class InvoicesRelationManager extends RelationManager
                     ->searchable(),
                 Tables\Columns\TextColumn::make('number')
                     ->label(__('resources.invoice.number'))
+                    ->formatStateUsing(function ($record) {
+                        return $record->purchase?->procurement?->number ?? '-';
+                    })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('date')
                     ->label(__('resources.invoice.date'))
@@ -111,6 +139,9 @@ class InvoicesRelationManager extends RelationManager
                     ->label(__('resources.invoice.supplier'))
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('purchase.code')
+                    ->label(__('resources.invoice.purchase'))
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label(__('resources.invoice.status'))
                     ->badge()
