@@ -75,6 +75,28 @@ return [
         'quantity' => 'Jumlah',
         'description' => 'Deskripsi',
     ],
+    'workOrder' =>[
+        'label' => 'Work Order',
+        'no_wo' => 'Nomor',
+        'no_surat' => 'Nomor Surat',
+        'no_wbs' => 'Nomor WBS',
+        'amp_id' => 'AMP ID',
+        'nama_penugasan' => 'Nama Penugasan',
+        'kategori' => 'Kategori',
+        'nilai_penugasan' => 'Nilai Penugasan',
+        'start_date' => 'Tanggal Penugasan',
+        'end_date' => 'Batas Waktu Penugasan',
+        'status' => 'Status',
+        'status_at' => 'Status Pada',
+        'created_at' => 'Dibuat Pada',
+        'updated_at' => 'Diperbarui Pada',
+        'deleted_at' => 'Dihapus Pada',
+        'view_items' => 'Lihat Item',
+
+    ],
+    'workOrderItem' =>[
+        'label' => 'Item Work Order',
+    ],
     'procurement' => [
         'basic_info' => 'Informasi DKMJ',
         'documents' => 'Dokumen',        'label' => 'Pengadaan',
