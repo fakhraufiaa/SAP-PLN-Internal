@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PurchaseResource\RelationManagers;
 use App\Enums\ProductStatus;
 use App\Filament\Resources\InvoiceResource;
 use App\Models\Invoice;
+use App\Models\Procurement;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -125,10 +126,10 @@ class InvoicesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('code')
                     ->label(__('resources.invoice.code'))
                     ->searchable(),
-                Tables\Columns\TextColumn::make('number')
+                Tables\Columns\TextColumn::make('procurement.code')
                     ->label(__('resources.invoice.number'))
                     ->formatStateUsing(function ($record) {
-                        return $record->purchase?->procurement?->number ?? '-';
+                        return $record->purchase?->procurement?->code ?? '-';
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('date')

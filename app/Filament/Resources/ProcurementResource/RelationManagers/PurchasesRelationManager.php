@@ -33,37 +33,40 @@ class PurchasesRelationManager extends RelationManager
                     ->label(__('resources.purchase.number'))
                     ->searchable()
                     ->options(function () {
-                        return \App\Models\Procurement::pluck('number', 'id'); // id disimpan, number ditampilkan
+                        return \App\Models\Procurement::pluck('code', 'id');
                     })
                     ->live()
                     ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
                         if ($state) {
                             $procurement = \App\Models\Procurement::find($state);
                             if ($procurement) {
-                                $set('procurement_id', $procurement->id); // <-- ID procurement untuk database
-                                $set('procurement_id_display', $procurement->penugasan_id); // <-- hanya untuk display
+                                $set('procurement_id', $procurement->id);
+                                $set('procurement_id_display', $procurement->penugasan_id);
                             }
+                        } else {
+                            $set('procurement_id', null);
+                            $set('procurement_id_display', null);
                         }
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
                         if ($record && $record->number) {
                             $procurement = \App\Models\Procurement::find($record->number);
-                            $set('procurement_id', $procurement?->id ?? null); // <-- ID procurement untuk database
-                            $set('procurement_id_display', $procurement?->penugasan_id ?? null); // <-- hanya untuk display
+                            $set('procurement_id', $procurement?->id ?? null);
+                            $set('procurement_id_display', $procurement?->penugasan_id ?? null);
                         }
                     })
                     ->required(),
 
                 Forms\Components\Hidden::make('number')
-                ->required(),
+                    ->required(),
 
                 Forms\Components\Hidden::make('procurement_id')
-                ->required(),
+                    ->required(),
 
                 Forms\Components\TextInput::make('procurement_id_display')
-                ->label(__('resources.purchase.procurement'))
-                ->disabled()
-                ->dehydrated(false),
+                    ->label(__('resources.purchase.procurement'))
+                    ->disabled()
+                    ->dehydrated(false),
 
 
                 Forms\Components\Select::make('supplier_id')

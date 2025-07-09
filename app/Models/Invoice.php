@@ -69,7 +69,7 @@ class Invoice extends Model
 
     public function procurement(): BelongsTo
     {
-        return $this->belongsTo(Procurement::class);
+        return $this->belongsTo(Procurement::class, 'number', 'id');
     }
 
     public function shippingDocuments(): HasMany

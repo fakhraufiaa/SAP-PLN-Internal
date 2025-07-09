@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use App\Models\Procurement;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
+use Filament\Tables\Columns\TextColumn;
 
 class InvoiceResource extends Resource
 {
@@ -174,17 +176,17 @@ class InvoiceResource extends Resource
                     })
                     ->formatStateUsing(fn (ProductStatus $state): string => $state->getLabel())
                     ->sortable(),
-                Tables\Columns\TextColumn::make('number')
+                Tables\Columns\TextColumn::make('procurement.code')
                     ->label(__('resources.invoice.number'))
                     ->formatStateUsing(function ($record) {
-                        return $record->purchase?->procurement?->number ?? '-';
+                        return $record->purchase?->procurement?->code ?? '-';
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('date')
                     ->label(__('resources.invoice.date'))
                     ->date('d M Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('purchase.code') // Changed from purchase_id to purchase.code
+                Tables\Columns\TextColumn::make('purchase.code')
                     ->label(__('resources.invoice.purchase'))
                     ->searchable()
                     ->sortable(),

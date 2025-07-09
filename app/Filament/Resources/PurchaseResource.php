@@ -8,8 +8,8 @@ use App\Filament\Resources\PurchaseResource\RelationManagers;
 use App\Filament\Resources\PurchaseResource\RelationManagers\InvoicesRelationManager;
 use App\Filament\Resources\PurchaseResource\RelationManagers\ProductsRelationManager;
 use App\Models\Purchase;
-use App\Models\Procurement; // Import model Procurement
-use App\Models\WorkOrder; // Import model WorkOrder (jika diperlukan untuk mengambil no_wo)
+use App\Models\Procurement;
+use App\Models\WorkOrder;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -54,13 +54,10 @@ class PurchaseResource extends Resource
                     ->default(fn () => 'PUR-'.str_pad((Purchase::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
                     ->readOnly(),
 
-                // Select untuk 'number' yang menampilkan Procurement::code dan menyimpan Procurement::id
                 Forms\Components\Select::make('number')
                     ->label(__('resources.purchase.number'))
                     ->searchable()
                     ->options(function () {
-                        // Mengambil 'code' dari Procurement untuk ditampilkan,
-                        // dan menggunakan ID Procurement sebagai nilai yang disimpan.
                         return \App\Models\Procurement::pluck('code', 'id');
                     })
                     ->live()
@@ -68,46 +65,33 @@ class PurchaseResource extends Resource
                         if ($state) {
                             $procurement = \App\Models\Procurement::find($state);
                             if ($procurement) {
-                                // Mengisi 'procurement_id' dengan ID Procurement yang dipilih
                                 $set('procurement_id', $procurement->id);
-                                // Mengisi 'procurement_id_display' dengan penugasan_id dari Procurement
                                 $set('procurement_id_display', $procurement->penugasan_id);
                             }
                         } else {
-                            // Mengosongkan field jika pilihan dihapus
                             $set('procurement_id', null);
                             $set('procurement_id_display', null);
                         }
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
-                        // Saat mengedit, jika ada nilai 'number' (yaitu Procurement ID)
                         if ($record && $record->number) {
                             $procurement = \App\Models\Procurement::find($record->number);
-                            // Mengisi 'procurement_id' dengan ID Procurement dari record yang ada
                             $set('procurement_id', $procurement?->id ?? null);
-                            // Mengisi 'procurement_id_display' dengan penugasan_id dari Procurement
                             $set('procurement_id_display', $procurement?->penugasan_id ?? null);
                         }
                     })
                     ->required(),
 
-                // Hidden field 'number' - ini akan menyimpan ID Procurement ke kolom 'number' di tabel Purchase
-                // Perhatikan: ini akan menyimpan nilai yang sama dengan Select 'number' di atas.
-                // Pastikan kolom 'number' di tabel 'purchases' adalah FK ke 'procurements.id'.
                 Forms\Components\Hidden::make('number')
                     ->required(),
 
-                // Hidden field 'procurement_id' - ini juga akan menyimpan ID Procurement ke kolom 'procurement_id' di tabel Purchase
-                // Ini menciptakan redundansi jika 'number' juga menyimpan ID Procurement.
-                // Sebaiknya pilih salah satu kolom untuk FK ke Procurement.
                 Forms\Components\Hidden::make('procurement_id')
-                    ->required(), // <-- ini yang masuk ke database
+                    ->required(),
 
-                // TextInput untuk display 'penugasan_id' dari Procurement yang dipilih
                 Forms\Components\TextInput::make('procurement_id_display')
                     ->label(__('resources.purchase.procurement'))
-                    ->disabled() // Tidak bisa diedit pengguna
-                    ->dehydrated(false), // Tidak disimpan ke database Purchase
+                    ->disabled()
+                    ->dehydrated(false),
 
                 Forms\Components\Select::make('supplier_id')
                     ->label(__('resources.purchase.supplier'))
@@ -183,8 +167,8 @@ class PurchaseResource extends Resource
                     })
                     ->formatStateUsing(fn (ProductStatus $state): string => $state->getLabel())
                     ->sortable(),
-                // Menampilkan 'number' dari Procurement yang berelasi
-                Tables\Columns\TextColumn::make('procurement.number')
+                // Menampilkan 'code' dari Procurement yang berelasi
+                Tables\Columns\TextColumn::make('procurement.code')
                     ->label(__('resources.purchase.number'))
                     ->searchable(),
                 // Menampilkan 'penugasan_id' dari Procurement yang berelasi

@@ -117,11 +117,7 @@ class ProcurementResource extends Resource
                             $set('end_date', null);
                         }
                     })
-                    // This is crucial for editing existing records:
-                    // When the form loads, if 'number' already has a value (WorkOrder ID),
-                    // it will fetch the WorkOrder and hydrate the other fields.
                     ->afterStateHydrated(function ($state, $record, callable $set) {
-                        // Only hydrate if $record exists (editing) and $state (WorkOrder ID) is present
                         if ($record && $state) {
                             $workOrder = WorkOrder::find($state);
                             if ($workOrder) {
