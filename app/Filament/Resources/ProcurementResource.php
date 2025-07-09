@@ -8,6 +8,7 @@ use App\Filament\Resources\ProcurementResource\RelationManagers\InvoicesRelation
 use App\Filament\Resources\ProcurementResource\RelationManagers\ProductsRelationManager;
 use App\Filament\Resources\ProcurementResource\RelationManagers\PurchasesRelationManager;
 use App\Models\Procurement;
+use App\Models\WorkOrder; // Corrected casing for WorkOrder model
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -27,6 +28,8 @@ class ProcurementResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-clipboard';
 
     protected static ?string $navigationGroup = 'Procurement';
+
+    protected static ?int $navigationSort = 20;
 
     public static function getModelLabel(): string
     {
@@ -68,50 +71,103 @@ class ProcurementResource extends Resource
                             ->getUploadedFileNameForStorageUsing(
                                 function (TemporaryUploadedFile $file, callable $get) {
                                     $code = $get('code');
-                                    return "DKMJ_{$code}.pdf";
+                                    // Ensure $code is not null or empty to avoid strange file names
+                                    return $code ? "DKMJ_{$code}.pdf" : "DKMJ_" . uniqid() . ".pdf";
                                 }
                             )
                             ->visibility('public')
                             ->columnSpanFull(),
                     ]),
 
-                    Forms\Components\TextInput::make('code')
-                            ->label(__('resources.procurement.code'))
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->default(fn () => 'PRC-'.str_pad((Procurement::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
-                            ->readOnly(),
-                    Forms\Components\TextInput::make('number')
-                            ->label(__('resources.procurement.number'))
-                            ->required()
-                            ->unique(ignoreRecord: true),
-                    Forms\Components\TextInput::make('amp_id')
-                            ->label(__('resources.procurement.amp_id'))
-                            ->required()
-                            ->numeric(),
-                    Forms\Components\TextInput::make('penugasan_id')
-                            ->label(__('resources.procurement.penugasan_id'))
-                            ->required(),
-                    Forms\Components\TextInput::make('kategori')
-                            ->label(__('resources.procurement.kategori'))
-                            ->required(),
-                    Forms\Components\TextInput::make('nilai_penugasan')
-                            ->label(__('resources.procurement.nilai_penugasan'))
-                            ->required()
-                            ->numeric(),
-                    Forms\Components\DatePicker::make('start_date')
-                            ->label(__('resources.procurement.start_date'))
-                            ->required(),
-                    Forms\Components\DatePicker::make('end_date')
-                            ->label(__('resources.procurement.end_date'))
-                            ->required(),
-                    Forms\Components\Select::make('status')
-                            ->label(__('resources.procurement.status'))
-                            ->options(ProductStatus::class)
-                            ->enum(ProductStatus::class)
-                            ->default(ProductStatus::PENDING)
-                            ->required(),
-                ]);
+                Forms\Components\TextInput::make('code')
+                    ->label(__('resources.procurement.code'))
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->default(fn () => 'PRC-'.str_pad((Procurement::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
+                    ->readOnly(),
+
+                // START: Modified 'number' field to be a Select for WorkOrder
+                // This field will store the WorkOrder ID in the 'number' column of Procurement
+                Forms\Components\Select::make('number')
+                    ->label(__('resources.procurement.number'))
+                    // Use the relationship to display 'no_wo' and store the WorkOrder 'id'
+                    ->relationship('workOrder', 'no_wo')
+                    ->searchable()
+                    ->preload() // Optional: load all options initially for smaller datasets
+                    ->required() // The foreign key 'number' is required
+                    ->live() // Make it live to trigger updates on other fields
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // When a WorkOrder is selected, update other fields based on its data
+                        if ($state) {
+                            $workOrder = WorkOrder::find($state);
+                            if ($workOrder) {
+                                $set('amp_id', $workOrder->amp_id);
+                                // Assuming 'penugasan_id' in Procurement maps to 'nama_penugasan' in WorkOrder
+                                $set('penugasan_id', $workOrder->nama_penugasan);
+                                $set('nilai_penugasan', $workOrder->nilai_penugasan);
+                                $set('start_date', $workOrder->tgl_penugasan);
+                                $set('end_date', $workOrder->tgl_bts_penugasan);
+                            }
+                        } else {
+                            // Clear related fields if the selection is cleared
+                            $set('amp_id', null);
+                            $set('penugasan_id', null);
+                            $set('nilai_penugasan', null);
+                            $set('start_date', null);
+                            $set('end_date', null);
+                        }
+                    })
+                    // This is crucial for editing existing records:
+                    // When the form loads, if 'number' already has a value (WorkOrder ID),
+                    // it will fetch the WorkOrder and hydrate the other fields.
+                    ->afterStateHydrated(function ($state, $record, callable $set) {
+                        // Only hydrate if $record exists (editing) and $state (WorkOrder ID) is present
+                        if ($record && $state) {
+                            $workOrder = WorkOrder::find($state);
+                            if ($workOrder) {
+                                $set('amp_id', $workOrder->amp_id);
+                                $set('penugasan_id', $workOrder->nama_penugasan);
+                                $set('nilai_penugasan', $workOrder->nilai_penugasan);
+                                $set('start_date', $workOrder->tgl_penugasan);
+                                $set('end_date', $workOrder->tgl_bts_penugasan);
+                            }
+                        }
+                    }),
+                // END: Modified 'number' field
+
+                // These fields will now be populated by the Select's afterStateUpdated/Hydrated
+                // They should be readOnly() if they are purely derived from WorkOrder and not directly editable
+                Forms\Components\TextInput::make('amp_id')
+                    ->label(__('resources.procurement.amp_id'))
+                    ->readOnly() // Make it read-only as it's derived from WorkOrder
+                    ->dehydrated(true), // Ensure it's saved to the database
+                Forms\Components\TextInput::make('penugasan_id')
+                    ->label(__('resources.procurement.penugasan_id'))
+                    ->readOnly()
+                    ->dehydrated(true),
+                Forms\Components\TextInput::make('kategori')
+                    ->label(__('resources.procurement.kategori'))
+                    ->required(),// Assuming this is also derived from WorkOrder
+                Forms\Components\TextInput::make('nilai_penugasan')
+                    ->label(__('resources.procurement.nilai_penugasan'))
+                    ->readOnly()
+                    ->numeric()
+                    ->dehydrated(true),
+                Forms\Components\DatePicker::make('start_date')
+                    ->label(__('resources.procurement.start_date'))
+                    ->readOnly()
+                    ->dehydrated(true),
+                Forms\Components\DatePicker::make('end_date')
+                    ->label(__('resources.procurement.end_date'))
+                    ->readOnly()
+                    ->dehydrated(true),
+                Forms\Components\Select::make('status')
+                    ->label(__('resources.procurement.status'))
+                    ->options(ProductStatus::class)
+                    ->enum(ProductStatus::class)
+                    ->default(ProductStatus::PENDING)
+                    ->required(),
+            ]);
     }
 
 
@@ -132,7 +188,7 @@ class ProcurementResource extends Resource
                     })
                     ->formatStateUsing(fn (ProductStatus $state): string => $state->getLabel())
                     ->sortable(),
-                Tables\Columns\TextColumn::make('number')
+                Tables\Columns\TextColumn::make('workOrder.no_wo') // This is correct for displaying no_wo in the table
                     ->label(__('resources.procurement.number'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('amp_id')
@@ -185,7 +241,6 @@ class ProcurementResource extends Resource
                         if (empty($state)) {
                             return '-';
                         }
-
                         return "DKMJ_{$record->code}.pdf";
                     })
                     ->icon('heroicon-o-document-text')
@@ -240,22 +295,3 @@ class ProcurementResource extends Resource
         ];
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

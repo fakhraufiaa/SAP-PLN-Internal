@@ -35,4 +35,9 @@ class WorkOrder extends Model
     {
         return $this->hasMany(\App\Models\WorkOrderItem::class, 'work_order_id');
     }
+
+    public function procurements(): HasMany
+    {
+        return $this->hasMany(Procurement::class, 'number', 'id');
+    }
 }

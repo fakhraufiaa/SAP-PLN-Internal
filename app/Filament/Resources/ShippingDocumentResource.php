@@ -30,7 +30,7 @@ class ShippingDocumentResource extends Resource
 
     protected static ?string $navigationGroup = 'Procurement';
 
-    protected static ?int $navigationSort = 40;
+    protected static ?int $navigationSort = 50;
 
     public static function getModelLabel(): string
     {

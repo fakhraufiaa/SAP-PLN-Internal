@@ -8,6 +8,8 @@ use App\Filament\Resources\PurchaseResource\RelationManagers;
 use App\Filament\Resources\PurchaseResource\RelationManagers\InvoicesRelationManager;
 use App\Filament\Resources\PurchaseResource\RelationManagers\ProductsRelationManager;
 use App\Models\Purchase;
+use App\Models\Procurement; // Import model Procurement
+use App\Models\WorkOrder; // Import model WorkOrder (jika diperlukan untuk mengambil no_wo)
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -17,14 +19,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
+use Filament\Forms\Get; // Pastikan ini diimport
 
 class PurchaseResource extends Resource
 {
     protected static ?string $model = Purchase::class;
     protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';
     protected static ?string $navigationGroup = 'Procurement';
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 30;
 
     public static function getModelLabel(): string
     {
@@ -52,87 +54,105 @@ class PurchaseResource extends Resource
                     ->default(fn () => 'PUR-'.str_pad((Purchase::withTrashed()->count() + 1), 5, '0', STR_PAD_LEFT))
                     ->readOnly(),
 
+                // Select untuk 'number' yang menampilkan Procurement::code dan menyimpan Procurement::id
                 Forms\Components\Select::make('number')
                     ->label(__('resources.purchase.number'))
                     ->searchable()
                     ->options(function () {
-                        return \App\Models\Procurement::pluck('number', 'id'); // id disimpan, number ditampilkan
+                        // Mengambil 'code' dari Procurement untuk ditampilkan,
+                        // dan menggunakan ID Procurement sebagai nilai yang disimpan.
+                        return \App\Models\Procurement::pluck('code', 'id');
                     })
                     ->live()
                     ->afterStateUpdated(function ($state, \Filament\Forms\Set $set) {
                         if ($state) {
                             $procurement = \App\Models\Procurement::find($state);
                             if ($procurement) {
-                                $set('procurement_id', $procurement->id); // <-- ID procurement untuk database
-                                $set('procurement_id_display', $procurement->penugasan_id); // <-- hanya untuk display
+                                // Mengisi 'procurement_id' dengan ID Procurement yang dipilih
+                                $set('procurement_id', $procurement->id);
+                                // Mengisi 'procurement_id_display' dengan penugasan_id dari Procurement
+                                $set('procurement_id_display', $procurement->penugasan_id);
                             }
+                        } else {
+                            // Mengosongkan field jika pilihan dihapus
+                            $set('procurement_id', null);
+                            $set('procurement_id_display', null);
                         }
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
+                        // Saat mengedit, jika ada nilai 'number' (yaitu Procurement ID)
                         if ($record && $record->number) {
                             $procurement = \App\Models\Procurement::find($record->number);
-                            $set('procurement_id', $procurement?->id ?? null); // <-- ID procurement untuk database
-                            $set('procurement_id_display', $procurement?->penugasan_id ?? null); // <-- hanya untuk display
+                            // Mengisi 'procurement_id' dengan ID Procurement dari record yang ada
+                            $set('procurement_id', $procurement?->id ?? null);
+                            // Mengisi 'procurement_id_display' dengan penugasan_id dari Procurement
+                            $set('procurement_id_display', $procurement?->penugasan_id ?? null);
                         }
                     })
                     ->required(),
 
+                // Hidden field 'number' - ini akan menyimpan ID Procurement ke kolom 'number' di tabel Purchase
+                // Perhatikan: ini akan menyimpan nilai yang sama dengan Select 'number' di atas.
+                // Pastikan kolom 'number' di tabel 'purchases' adalah FK ke 'procurements.id'.
                 Forms\Components\Hidden::make('number')
                     ->required(),
 
+                // Hidden field 'procurement_id' - ini juga akan menyimpan ID Procurement ke kolom 'procurement_id' di tabel Purchase
+                // Ini menciptakan redundansi jika 'number' juga menyimpan ID Procurement.
+                // Sebaiknya pilih salah satu kolom untuk FK ke Procurement.
                 Forms\Components\Hidden::make('procurement_id')
                     ->required(), // <-- ini yang masuk ke database
 
+                // TextInput untuk display 'penugasan_id' dari Procurement yang dipilih
                 Forms\Components\TextInput::make('procurement_id_display')
                     ->label(__('resources.purchase.procurement'))
-                    ->disabled()
-                    ->dehydrated(false),
+                    ->disabled() // Tidak bisa diedit pengguna
+                    ->dehydrated(false), // Tidak disimpan ke database Purchase
 
                 Forms\Components\Select::make('supplier_id')
-                ->label(__('resources.purchase.supplier'))
-                ->relationship('supplier', 'name')
-                ->required()
-                ->searchable()
-                ->getSearchResultsUsing(function (string $search) {
-                    return \App\Models\Supplier::where('name', 'like', "%{$search}%")
-                        ->limit(20)
-                        ->pluck('name', 'id');
-                })
-                ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Supplier::find($value)?->name)
-                ->createOptionForm([
-                    Forms\Components\TextInput::make('name')
-                        ->label(__('resources.supplier.name'))
-                        ->required()
-                        ->columnSpanFull(),
+                    ->label(__('resources.purchase.supplier'))
+                    ->relationship('supplier', 'name')
+                    ->required()
+                    ->searchable()
+                    ->getSearchResultsUsing(function (string $search) {
+                        return \App\Models\Supplier::where('name', 'like', "%{$search}%")
+                            ->limit(20)
+                            ->pluck('name', 'id');
+                    })
+                    ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Supplier::find($value)?->name)
+                    ->createOptionForm([
+                        Forms\Components\TextInput::make('name')
+                            ->label(__('resources.supplier.name'))
+                            ->required()
+                            ->columnSpanFull(),
 
-                    Forms\Components\Section::make(__('resources.supplier.sales_contact'))
-                        ->schema([
-                            Forms\Components\TextInput::make('sales_name')
-                                ->label(__('resources.supplier.sales_name'))
-                                ->required(),
-                            Forms\Components\TextInput::make('sales_phone')
-                                ->label(__('resources.supplier.sales_phone'))
-                                ->required()
-                                ->tel(),
-                            Forms\Components\TextInput::make('sales_email')
-                                ->label(__('resources.supplier.sales_email'))
-                                ->email(),
-                        ])->columns(3),
-                    Forms\Components\Section::make(__('resources.supplier.logistics_contact'))
-                        ->schema([
-                            Forms\Components\TextInput::make('logistics_name')
-                                ->label(__('resources.supplier.logistics_name'))
-                                ->required(),
-                            Forms\Components\TextInput::make('logistics_phone')
-                                ->label(__('resources.supplier.logistics_phone'))
-                                ->required()
-                                ->tel(),
-                            Forms\Components\TextInput::make('logistics_email')
-                                ->label(__('resources.supplier.logistics_email'))
-                                ->email(),
-                        ])->columns(3),
-                ]),
-
+                        Forms\Components\Section::make(__('resources.supplier.sales_contact'))
+                            ->schema([
+                                Forms\Components\TextInput::make('sales_name')
+                                    ->label(__('resources.supplier.sales_name'))
+                                    ->required(),
+                                Forms\Components\TextInput::make('sales_phone')
+                                    ->label(__('resources.supplier.sales_phone'))
+                                    ->required()
+                                    ->tel(),
+                                Forms\Components\TextInput::make('sales_email')
+                                    ->label(__('resources.supplier.sales_email'))
+                                    ->email(),
+                            ])->columns(3),
+                        Forms\Components\Section::make(__('resources.supplier.logistics_contact'))
+                            ->schema([
+                                Forms\Components\TextInput::make('logistics_name')
+                                    ->label(__('resources.supplier.logistics_name'))
+                                    ->required(),
+                                Forms\Components\TextInput::make('logistics_phone')
+                                    ->label(__('resources.supplier.logistics_phone'))
+                                    ->required()
+                                    ->tel(),
+                                Forms\Components\TextInput::make('logistics_email')
+                                    ->label(__('resources.supplier.logistics_email'))
+                                    ->email(),
+                            ])->columns(3),
+                    ]),
 
                 Forms\Components\DatePicker::make('purchase_date')
                     ->label(__('resources.purchase.purchase_date'))
@@ -163,13 +183,13 @@ class PurchaseResource extends Resource
                     })
                     ->formatStateUsing(fn (ProductStatus $state): string => $state->getLabel())
                     ->sortable(),
-                Tables\Columns\TextColumn::make('number')
+                // Menampilkan 'number' dari Procurement yang berelasi
+                Tables\Columns\TextColumn::make('procurement.number')
                     ->label(__('resources.purchase.number'))
-                    ->formatStateUsing(fn ($record) => $record->procurement?->number)
                     ->searchable(),
-                Tables\Columns\TextColumn::make('procurement')
+                // Menampilkan 'penugasan_id' dari Procurement yang berelasi
+                Tables\Columns\TextColumn::make('procurement.penugasan_id')
                     ->label(__('resources.purchase.procurement'))
-                    ->formatStateUsing(fn ($record) => $record->procurement?->penugasan_id)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('supplier.name')
                     ->label(__('resources.purchase.supplier'))

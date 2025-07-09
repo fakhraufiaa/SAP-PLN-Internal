@@ -21,9 +21,6 @@ class WorkOrderResource extends Resource
 
     protected static ?string $navigationGroup = 'Procurement';
 
-    protected static ?int $navigationSort = 50;
-
-
     public static function getModelLabel(): string
     {
         return __('resources.workOrder.label');
@@ -114,8 +111,8 @@ class WorkOrderResource extends Resource
                 Tables\Columns\TextColumn::make('nama_penugasan')->label(__('resources.workOrder.nama_penugasan'))->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('kategori')->label(__('resources.workOrder.kategori'))->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('nilai_penugasan')->label(__('resources.workOrder.nilai_penugasan'))->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('tgl_penugasan')->label(__('resources.workOrder.tgl_penugasan'))->date('d M Y')->sortable(),
-                Tables\Columns\TextColumn::make('tgl_bts_penugasan')->label(__('resources.workOrder.tgl_bts_penugasan'))->date('d M Y')->sortable(),
+                Tables\Columns\TextColumn::make('tgl_penugasan')->label(__('resources.workOrder.start_date'))->date('d M Y')->sortable(),
+                Tables\Columns\TextColumn::make('tgl_bts_penugasan')->label(__('resources.workOrder.end_date'))->date('d M Y')->sortable(),
                 Tables\Columns\TextColumn::make('status_at')->label('Status At')->dateTime('d M Y H:i')->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')->label('Dibuat')->dateTime('d M Y H:i')->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')->label('Diubah')->dateTime('d M Y H:i')->sortable()->toggleable(isToggledHiddenByDefault: true),
@@ -152,6 +149,7 @@ class WorkOrderResource extends Resource
     {
         return [
             WorkOrderResource\RelationManagers\WorkOrderItemsRelationManager::class,
+            WorkOrderResource\RelationManagers\ProcurementRelationManager::class,
         ];
     }
 }
