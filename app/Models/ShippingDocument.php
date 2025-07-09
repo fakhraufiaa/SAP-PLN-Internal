@@ -67,6 +67,11 @@ class ShippingDocument extends Model
         return $this->hasMany(ShippingDocumentProduct::class);
     }
 
+      public function procurement(): BelongsTo
+    {
+        return $this->belongsTo(Procurement::class, 'number', 'id');
+    }
+
     public function getQrCodeData(): string
     {
         // Muat relasi yang diperlukan untuk QR Code

@@ -104,7 +104,7 @@ class ShippingDocumentResource extends Resource
 
                         $invoice = \App\Models\Invoice::with('purchase.procurement')->find($state);
                         if ($invoice && $invoice->purchase && $invoice->purchase->procurement) {
-                            $set('number', $invoice->purchase->procurement->penugasan_id); // <-- simpan penugasan_id ke kolom number
+                            $set('number', $invoice->purchase->procurement->number); // <-- simpan penugasan_id ke kolom number
                             $set('penugasan_id_display', $invoice->purchase->procurement->penugasan_id); // tampilkan penugasan_id
                         } else {
                             $set('number', null);
@@ -114,7 +114,7 @@ class ShippingDocumentResource extends Resource
                     })
                     ->afterStateHydrated(function ($state, $record, \Filament\Forms\Set $set) {
                         if ($record && $record->invoice && $record->invoice->purchase && $record->invoice->purchase->procurement) {
-                            $set('number', $record->invoice->purchase->procurement->penugasan_id);
+                            $set('number', $record->invoice->purchase->procurement->number);
                             $set('penugasan_id_display', $record->invoice->purchase->procurement->penugasan_id);
                         }
                     })
@@ -161,11 +161,11 @@ class ShippingDocumentResource extends Resource
                     ->formatStateUsing(fn (ProductStatus $state): string => $state->getLabel())
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('number')
+                Tables\Columns\TextColumn::make('procurement.code')
                     ->label(__('resources.shipping_document.number'))
                     ->formatStateUsing(function ($record) {
                         // Get the procurement number through the invoice->purchase relationship
-                        return $record->invoice?->purchase?->procurement?->number ?? 'N/A';
+                        return $record->invoice?->purchase?->procurement?->code ?? 'N/A';
                     })
                     ->searchable(),
 

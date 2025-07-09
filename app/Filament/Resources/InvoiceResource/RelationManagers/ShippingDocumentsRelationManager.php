@@ -59,7 +59,7 @@ class ShippingDocumentsRelationManager extends RelationManager
                     ->required(),
 
                 Forms\Components\TextInput::make('penugasan_id_display')
-                    ->label('Penugasan ID')
+                    ->label('Penugasan')
                     ->disabled()
                     ->dehydrated(false),
 
@@ -119,8 +119,12 @@ class ShippingDocumentsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('code')
                     ->label(__('resources.shipping_document.code'))
                     ->searchable(),
-                Tables\Columns\TextColumn::make('number')
+                 Tables\Columns\TextColumn::make('procurement.code')
                     ->label(__('resources.shipping_document.number'))
+                    ->formatStateUsing(function ($record) {
+                        // Get the procurement number through the invoice->purchase relationship
+                        return $record->invoice?->purchase?->procurement?->code ?? 'N/A';
+                    })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('invoice.code')
                     ->label(__('resources.shipping_document.invoice'))
